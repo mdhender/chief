@@ -16,6 +16,7 @@ func (s *Server) routes() http.Handler {
 	r.HandleFunc("GET", "/", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintf(w, "hi")
 	})
+	r.Handle("GET", "/:game/:clan/:year/:month/upload-turn-report", s.handleTurnReport())
 
 	return r
 }

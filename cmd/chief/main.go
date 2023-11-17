@@ -5,47 +5,51 @@
 package main
 
 import (
+	"github.com/mdhender/chief/internal/config"
 	"github.com/mdhender/chief/internal/dot"
 	"log"
-	"net"
 	"os"
-	"time"
+	"path/filepath"
+)
+
+// globals. ugh
+var (
+	cfg *config.Config = config.Default()
 )
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.LUTC)
 
+	if err := cfg.Load("chief.json"); err != nil {
+		log.Fatal(err)
+	}
+	for _, game := range cfg.Games {
+		log.Printf("[%s] year %d month %d\n", game.Id, game.Turn.Year, game.Turn.Month)
+		for _, clan := range game.Clans {
+			if clan.Docs == "" {
+				clan.Docs = "docs"
+			}
+			if docs, err := filepath.Abs(filepath.Join(clan.Root, clan.Docs)); err != nil {
+				log.Fatal(err)
+			} else {
+				clan.Docs = docs
+			}
+			log.Printf("[%s] clan %q: docs %q\n", game.Id, clan.Id, clan.Docs)
+		}
+	}
+
 	if err := dot.Load("CHIEF", true, true); err != nil {
 		log.Fatalf("main: %+v\n", err)
 	}
-	host := ""
+	if val := os.Getenv("CHIEF_ENV"); val != "" {
+		cfg.Env = val
+	}
 	if val := os.Getenv("CHIEF_HOST"); val != "" {
-		host = val
+		cfg.Server.Host = val
 	}
-	port := "8080"
 	if val := os.Getenv("CHIEF_PORT"); val != "" {
-		port = val
+		cfg.Server.Port = val
 	}
 
-	var err error
-
-	// create a new http server with good values for timeouts and transports
-	s := &Server{}
-	s.Addr = net.JoinHostPort(host, port)
-	s.IdleTimeout = 10 * time.Second
-	s.ReadTimeout = 2 * time.Second
-	s.WriteTimeout = 2 * time.Second
-
-	if s.starting, err = LoadStarting("genericStartup.json"); err != nil {
-		log.Fatal(err)
-	}
-	s.Handler = s.routes()
-
-	defer func(started time.Time) {
-		log.Printf("[main] elapsed time %v\n", time.Now().Sub(started))
-	}(time.Now())
-
-	if err := s.Serve(); err != nil {
-		log.Fatal(err)
-	}
+	Execute()
 }

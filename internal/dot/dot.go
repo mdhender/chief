@@ -6,6 +6,7 @@ package dot
 
 import (
 	"errors"
+	"fmt"
 	"github.com/joho/godotenv"
 	"io/fs"
 	"log"
@@ -57,17 +58,17 @@ func Load(prefix string, show, verbose bool) error {
 	env := os.Getenv(envvar)
 	if verbose {
 		log.Printf("[dot] %-30s == %q\n", envvar, env)
-		found := false
-		for _, environment := range environments {
-			if environment != env {
-				continue
-			}
+	}
+	found := false
+	for _, environment := range environments {
+		if environment == env {
 			found = true
 			break
 		}
-		if !found {
-			log.Printf("[dot] warning: env should be in %v\n", environments)
-		}
+	}
+	if !found {
+		log.Printf("[dot] error: env should be in %v\n", environments)
+		return fmt.Errorf("unknown environment")
 	}
 
 	// local environment files are the highest priority

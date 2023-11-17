@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/mdhender/chief/internal/config"
 	"log"
 	"net/http"
 	"os"
@@ -17,15 +18,17 @@ import (
 
 type Server struct {
 	http.Server
+	games    map[string]*config.Game
 	starting *Starting
 }
 
-func (s *Server) Serve() error {
+func (s *Server) Serve(games map[string]*config.Game) error {
 	if s.Addr == ":" {
 		return fmt.Errorf("missing port")
 	} else if s.Handler == nil {
 		return fmt.Errorf("missing handler")
 	}
+	s.games = games
 
 	// set up stuff so that we can gracefully shut down the server and application
 	serverCh := make(chan struct{})
