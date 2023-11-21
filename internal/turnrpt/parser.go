@@ -6,36 +6,10 @@ package turnrpt
 import (
 	"bytes"
 	"fmt"
-	"github.com/mdhender/chief/internal/docconv"
 	"github.com/mdhender/chief/internal/terrain"
 	"log"
-	"os"
 	"strconv"
 )
-
-type parser struct {
-	scanner *scanner
-	input   []byte
-	pos     int
-	meta    map[string]string
-	report  []*Report
-	err     error
-}
-
-func ParseDocument(filename string) ([]*TribeSection, error) {
-	log.Printf("parse: filename %s\n", filename)
-	fp, err := os.Open(filename)
-	if err != nil {
-		log.Printf("[ptr] open %v\n", err)
-		return nil, err
-	}
-	body, meta, err := docconv.ConvertDocx(fp)
-	if err != nil {
-		log.Printf("[ptr] convert %v\n", err)
-		return nil, err
-	}
-	return Parse([]byte(body), meta)
-}
 
 func Parse(input []byte, _ map[string]string) ([]*TribeSection, error) {
 	var sections []*TribeSection
