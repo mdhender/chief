@@ -165,7 +165,7 @@ type DesiredCommodities struct {
 
 type Status struct {
 	Clan    string
-	Terrain terrain.CODE
+	Terrain terrain.Terrain
 	Hex     string
 }
 

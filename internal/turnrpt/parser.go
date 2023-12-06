@@ -328,16 +328,16 @@ func parseStatus(statusLiteral string, input []byte) (*Status, []byte, error) {
 	status.Terrain, rest, err = parseTerrain(skipws(rest))
 	if err != nil {
 		return status, rest, fmt.Errorf("status: terrain: %w", err)
-	} else if status.Terrain == terrain.NONE {
+	} else if status.Terrain == terrain.Unknown {
 		return status, rest, fmt.Errorf("status: expected terrain")
 	}
 	return status, rest, fmt.Errorf("unexpected eof")
 }
 
-func parseTerrain(input []byte) (terrain.CODE, []byte, error) {
+func parseTerrain(input []byte) (terrain.Terrain, []byte, error) {
 	run, rest := word(skipws(input))
 	if run == nil {
-		return terrain.NONE, input, nil
+		return terrain.Unknown, input, nil
 	}
 	if bytes.Equal(run, []byte("ALPS")) {
 		return terrain.ALPS, rest, nil
@@ -388,7 +388,7 @@ func parseTerrain(input []byte) (terrain.CODE, []byte, error) {
 	} else if bytes.Equal(run, []byte("TU")) {
 		return terrain.TU, rest, nil
 	}
-	return terrain.NONE, input, nil
+	return terrain.Unknown, input, nil
 }
 
 func parseTribeId(input []byte) (string, []byte, error) {

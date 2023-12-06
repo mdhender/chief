@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/mdhender/chief/internal/terrain"
 )
 
 type Hex struct {
@@ -30,7 +29,7 @@ func (h Hex) Move(md MoveDirection) Hex {
 			dx, dy = 1, 1
 		case S:
 			dx, dy = 0, +1
-		case terrain.SW:
+		case SW:
 			dx, dy = -1, 1
 		case NW:
 			dx, dy = -1, 0
@@ -45,7 +44,7 @@ func (h Hex) Move(md MoveDirection) Hex {
 			dx, dy = 1, 0
 		case S:
 			dx, dy = 0, +1
-		case terrain.SW:
+		case SW:
 			dx, dy = -1, 0
 		case NW:
 			dx, dy = -1, -1

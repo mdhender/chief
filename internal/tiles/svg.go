@@ -1,12 +1,11 @@
 // chief - a TribeNet player aid
-// Copyright (c) 2022-2023 Michael D Henderson. All rights reserved.
+// Copyright (c) 2023 Michael D Henderson. All rights reserved.
 
-package svg
+package tiles
 
 import (
 	"bytes"
 	"fmt"
-	"github.com/mdhender/chief/internal/hexes"
 	"github.com/mdhender/chief/internal/terrain"
 	"math"
 )
@@ -18,28 +17,21 @@ const (
 )
 
 type SVG struct {
-	id       string
-	width    float64
-	height   float64
-	viewBox  viewBox
-	layout   hexes.Layout
-	polygons []*polygon
+	id             string
+	width          float64
+	height         float64
+	viewBox        viewBox
+	layout         Layout
+	polygons       []*polygon
+	addCoordinates bool
 }
 
-type Hex struct {
-	cube    hexes.Cube
+type SHex struct {
+	cube    Hex
 	terrain terrain.Terrain
 }
 
-func New(cols, rows int, ac bool) *SVG {
-	addCoordinates = ac
-
-	//offset := (math.Sqrt(3) * RADIUS) / 2
-	//// cols -> width  -> x
-	//maxX := EDGES + offset*float64(cols*2)
-	//// rows -> height -> y
-	//maxY := EDGES + offset*float64(rows)*math.Sqrt(3)
-
+func NewSVG(ac bool) *SVG {
 	s := &SVG{
 		id:     "s",
 		width:  2.0 * RADIUS,
@@ -47,36 +39,28 @@ func New(cols, rows int, ac bool) *SVG {
 		viewBox: viewBox{
 			minX: 0,
 			minY: 0,
-			//width:  int(maxX),
-			//height: int(maxY),
 		},
-		//polygons: make(map[int]*polygon),
+		addCoordinates: ac,
 	}
 
-	// assumes flat with even-q layout
-	s.layout = hexes.NewFlatLayout(hexes.NewPoint(RADIUS, RADIUS), hexes.NewPoint(s.height, s.width))
+	s.layout = NewLayout(RADIUS)
 
 	return s
 }
 
-func (s *SVG) AddHex(x, y int, t terrain.Terrain) {
+func (s *SVG) AddTile(tile *Tile) {
+	x, y := tile.ToXY()
 	poly := &polygon{
 		x:       x,
 		y:       y,
 		radius:  s.height / 2.0,
-		terrain: t,
+		terrain: tile.Terrain,
 	}
-	h := hexes.XYToHex(x, y)
-	poly.cx, poly.cy = s.layout.CenterPoint(h).Coords()
-	//if int(poly.cx) > s.viewBox.width {
-	//	s.viewBox.width = int(poly.cx + poly.radius)
-	//}
-	//if int(poly.cy) > s.viewBox.height {
-	//	s.viewBox.height = int(poly.cy + poly.radius)
-	//}
+	h := tile.Hex
+	poly.cx, poly.cy = s.layout.centerPoint(h).Coords()
 
 	poly.style.stroke = "Grey"
-	poly.style.fill = t.ToFill()
+	poly.style.fill = tile.Terrain.ToFill()
 	if poly.style.fill == poly.style.stroke {
 		poly.style.stroke = "Black"
 		if poly.style.fill == poly.style.stroke {
@@ -86,7 +70,7 @@ func (s *SVG) AddHex(x, y int, t terrain.Terrain) {
 	poly.style.strokeWidth = "2px"
 	poly.style.strokeWidth = "1px"
 
-	for _, p := range s.layout.PolygonCorners(h) {
+	for _, p := range s.layout.polygonCorners(h) {
 		px, py := p.Coords()
 		poly.points = append(poly.points, point{x: px, y: py})
 		if int(px) > s.viewBox.width {
@@ -115,22 +99,32 @@ func (s *SVG) Bytes() []byte {
 	buf.WriteString("<style>@import url(medoly.css);</style>\n")
 
 	for i, t := range []terrain.Terrain{
-		terrain.Clear,
-		terrain.Delta,
-		terrain.Desert,
-		terrain.Forest,
-		terrain.Gravel,
-		terrain.Ice,
-		terrain.Mountain,
-		terrain.Ocean,
-		terrain.Plain,
-		terrain.Rock,
-		terrain.Rough,
-		terrain.SacredMountain,
-		terrain.SaltMarsh,
-		terrain.Sea,
-		terrain.Steppe,
-		terrain.Swamp,
+		terrain.Unknown,
+		terrain.ALPS,
+		terrain.AR,
+		terrain.BH,
+		terrain.BR,
+		terrain.CH,
+		terrain.DE,
+		terrain.DF,
+		terrain.DH,
+		terrain.FORDS,
+		terrain.GH,
+		terrain.HSM,
+		terrain.JG,
+		terrain.JH,
+		terrain.L,
+		terrain.LCM,
+		terrain.LJM,
+		terrain.LSM,
+		terrain.O,
+		terrain.PI,
+		terrain.PR,
+		terrain.R,
+		terrain.RH,
+		terrain.SH,
+		terrain.SW,
+		terrain.TU,
 	} {
 		if i > 0 {
 			buf.WriteByte('\n')
@@ -143,9 +137,9 @@ func (s *SVG) Bytes() []byte {
 			}
 			if ref == nil {
 				ref = poly
-				buf.Write(poly.Bytes(id))
+				buf.Write(poly.Bytes(id, s.addCoordinates))
 			} else {
-				buf.Write(poly.Use(ref, id))
+				buf.Write(poly.Use(ref, id, s.addCoordinates))
 			}
 		}
 	}
@@ -153,14 +147,6 @@ func (s *SVG) Bytes() []byte {
 	buf.Write([]byte("</svg>"))
 
 	return buf.Bytes()
-}
-
-type point struct {
-	x, y float64
-}
-
-func (p point) Bytes() []byte {
-	return []byte(fmt.Sprintf("%f,%f", p.x, p.y))
 }
 
 type viewBox struct {

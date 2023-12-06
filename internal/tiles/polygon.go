@@ -1,15 +1,13 @@
 // chief - a TribeNet player aid
-// Copyright (c) 2022-2023 Michael D Henderson. All rights reserved.
+// Copyright (c) 2023 Michael D Henderson. All rights reserved.
 
-package svg
+package tiles
 
 import (
 	"bytes"
 	"fmt"
 	"github.com/mdhender/chief/internal/terrain"
 )
-
-var addCoordinates = false
 
 // polygon is the actual hex on the board
 type polygon struct {
@@ -29,9 +27,8 @@ type polygon struct {
 	text      []string
 }
 
-func (p *polygon) Bytes(id string) []byte {
+func (p *polygon) Bytes(id string, addCoords bool) []byte {
 	buf := bytes.Buffer{}
-	//buf.WriteString(fmt.Sprintf(`<polygon style="fill: %s; stroke: %s; stroke-width: %s;"`, p.style.fill, p.style.stroke, p.style.strokeWidth))
 	buf.WriteString(`<polygon`)
 	if id != "" {
 		buf.WriteString(fmt.Sprintf(` id="%s"`, id))
@@ -50,7 +47,7 @@ func (p *polygon) Bytes(id string) []byte {
 	buf.WriteString(`"></polygon>`)
 	buf.WriteByte('\n')
 
-	if addCoordinates {
+	if addCoords {
 		fontSize := 8
 		buf.WriteString(fmt.Sprintf(`<text x="%f" y="%f" text-anchor="middle" fill="grey" font-size="%d" font-weight="bold">%s</text>`, p.cx, p.cy, fontSize, fmt.Sprintf("%02d %02d", p.x, p.y)))
 		buf.WriteByte('\n')
@@ -59,14 +56,14 @@ func (p *polygon) Bytes(id string) []byte {
 	return buf.Bytes()
 }
 
-func (p *polygon) Use(ref *polygon, id string) []byte {
+func (p *polygon) Use(ref *polygon, id string, addCoords bool) []byte {
 	buf := bytes.Buffer{}
 	dx := p.cx - ref.cx
 	dy := p.cy - ref.cy
 	buf.WriteString(fmt.Sprintf(`<use href="#%s" x="%f" y="%f" />`, id, dx, dy))
 	buf.WriteByte('\n')
 
-	if addCoordinates {
+	if addCoords {
 		fontSize := 8
 		buf.WriteString(fmt.Sprintf(`<text x="%f" y="%f" text-anchor="middle" fill="grey" font-size="%d" font-weight="bold">%s</text>`, p.cx, p.cy, fontSize, fmt.Sprintf("%02d %02d", p.x, p.y)))
 		buf.WriteByte('\n')
@@ -74,9 +71,3 @@ func (p *polygon) Use(ref *polygon, id string) []byte {
 
 	return buf.Bytes()
 }
-
-/*
-   <circle id="myCircle" cx="200" cy="200" r="4" stroke="blue" />
-   <use href="#myCircle" x="10" fill="blue" />
-   <use href="#myCircle" x="20" fill="white" stroke="red" />
-*/

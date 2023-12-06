@@ -1,216 +1,207 @@
 // chief - a TribeNet player aid
-// Copyright (c) 2022-2023 Michael D Henderson. All rights reserved.
+// Copyright (c) 2023 Michael D Henderson. All rights reserved.
 
 package terrain
 
 import (
-	"bytes"
 	"fmt"
+	"slices"
+	"strings"
 )
 
 type Terrain int
 
 const (
-	Clear Terrain = iota
-	Delta
-	Desert
-	Forest
-	Gravel
-	Ice
-	Mountain
-	Ocean
-	Plain
-	Rock
-	Rough
-	SacredMountain
-	SaltMarsh
-	Sea
-	Steppe
-	Swamp
+	Unknown Terrain = iota
+	ALPS
+	AR
+	BH
+	BR
+	CH
+	DE
+	DF
+	DH
+	FORDS
+	GH
+	HSM
+	JG
+	JH
+	L
+	LCM
+	LJM
+	LSM
+	O
+	PI
+	PR
+	R
+	RH
+	SH
+	SW
+	TU
+	endOfCodes // used as a sentinel value
 )
 
-// ToFill returns the background fill for a terrain type.
-/*
-#Delta {color: darkolivegreen; }
-#Desert {color: khaki ;}
-#Forest {color: forestgreen ;}
-#Gravel {color: darkgray ;}
-#Ice {color: whitesmoke ;}
-#Mountain {color: sienna ;}
-#Ocean {color: deepskyblue ;}
-#Plain {color: wheat ;}
-#Rock {color: gainsboro ;}
-#Rough {color: lightgray ;}
-#SacredMountain {color: gold ;}
-#SaltMarsh {color: yellowgreen ;}
-#Sea {color: lightblue ;}
-#Steppe {color: linen ;}
-#Swamp {color: mediumseagreen ;}
-*/
-func (t Terrain) ToFill() string {
-	switch t {
-	case Clear:
-		return "hsl(53, 100%, 94%)"
-	case Delta:
-		return "darkolivegreen"
-	case Desert:
-		return "khaki"
-	case Forest:
-		return "forestgreen"
-	case Gravel:
-		return "darkgray"
-	case Ice:
-		return "black" // "whitesmoke"
-	case Mountain:
-		return "chocolate"
-	case Ocean:
-		return "deepskyblue" //"hsl(197, 78%, 85%)"
-	case Plain:
-		return "wheat"
-	case Rock:
-		return "gainsboro"
-	case Rough:
-		return "lightgray"
-	case SacredMountain:
-		return "gold"
-	case SaltMarsh:
-		return "yellowgreen"
-	case Sea:
-		return "lightblue"
-	case Steppe:
-		return "linen"
-	case Swamp:
-		return "mediumseagreen"
+var (
+	Codes = []string{
+		ALPS:  "ALPS",
+		AR:    "AR",
+		BH:    "BH",
+		BR:    "BR",
+		CH:    "CH",
+		DE:    "DE",
+		DF:    "DF",
+		DH:    "DH",
+		FORDS: "FORDS",
+		GH:    "GH",
+		HSM:   "HSM",
+		JG:    "JG",
+		JH:    "JH",
+		L:     "L",
+		LCM:   "LCM",
+		LJM:   "LJM",
+		LSM:   "LSM",
+		O:     "O",
+		PI:    "PI",
+		PR:    "PR",
+		R:     "R",
+		RH:    "RH",
+		SH:    "SH",
+		SW:    "SW",
+		TU:    "TU",
 	}
-	panic(fmt.Sprintf("assert(t != %d)", t))
+	Description = []string{
+		ALPS:  "Alpine",
+		AR:    "Arid:",
+		BH:    "Brush Hill",
+		BR:    "Brush",
+		CH:    "Conifer Hills",
+		DE:    "Desert",
+		DF:    "Deciduous Forest",
+		DH:    "Deciduous Hill",
+		FORDS: "Fords",
+		GH:    "Grassy Hills",
+		HSM:   "High Mountains",
+		JG:    "Jungle",
+		JH:    "Jungle Hill",
+		L:     "Lake",
+		LCM:   "Low Conifer Mountains",
+		LJM:   "Low Jungle Mountain",
+		LSM:   "Low Snowy Mountains",
+		O:     "Ocean",
+		PI:    "Polar Ice",
+		PR:    "Prairie",
+		R:     "River",
+		RH:    "Rocky Hills",
+		SH:    "Snowy Hills",
+		SW:    "Swamp",
+		TU:    "Tundra",
+	}
+	LongDescription = [...]string{
+		ALPS:  "a bigger version of HSM.",
+		AR:    "Arid: tundra without water.",
+		BH:    "Brush Hill: Hill covered with brush.",
+		BR:    "Brush: Conifer forest with fewer trees more bushes (Forestry not possible here).",
+		CH:    "Conifer Hill: Hill covered with conifer forest.",
+		DE:    "Desert: Arid without grass.",
+		DF:    "Deciduous: Seasonal forest.",
+		DH:    "Deciduous Hill: Hill covered with deciduous forest.",
+		FORDS: "Shallow spots that are ways across rivers.",
+		GH:    "Grassy Hill: Hill covered with grass.",
+		HSM:   "High Mountains: cannot be entered, except through a pass.",
+		JG:    "Jungle: Wet forest.",
+		JH:    "Jungle Hill: Hill covered with jungle.",
+		L:     "Lake a body of water.",
+		LCM:   "Low Conifer Mountains: Hills but higher, difficult to enter covered with conifer forest.",
+		LJM:   "Low Jungle Mountain.",
+		LSM:   "Low Snowy Mountains: Hills but higher, very difficult to enter.",
+		O:     "Ocean.",
+		PI:    "Polar Ice: Permanent ice and difficult to move through.",
+		PR:    "Prairie: Grassland.",
+		R:     "Rivers: Large moving bodies of water impossible to cross unless through a ford or by boat.",
+		RH:    "Rocky Hill: Hill covered with rocks.",
+		SH:    "Snow Hill: colder than GH, snow rather than grass.",
+		SW:    "Swamp: very wet grassland.",
+		TU:    "Tundra: not very good grassland.",
+	}
+)
+
+func (c Terrain) Code() string {
+	if c < Unknown || endOfCodes <= c {
+		panic(fmt.Sprintf("assert(terrain != %d)", c))
+	}
+	return Codes[c]
 }
 
-func (t Terrain) MarshalJSON() ([]byte, error) {
-	switch t {
-	case Clear:
-		return []byte(`"clear"`), nil
-	case Delta:
-		return []byte(`"delta"`), nil
-	case Desert:
-		return []byte(`"desert"`), nil
-	case Forest:
-		return []byte(`"forest"`), nil
-	case Gravel:
-		return []byte(`"gravel"`), nil
-	case Ice:
-		return []byte(`"ice"`), nil
-	case Mountain:
-		return []byte(`"mountain"`), nil
-	case Ocean:
-		return []byte(`"ocean"`), nil
-	case Plain:
-		return []byte(`"plain"`), nil
-	case Rock:
-		return []byte(`"rock"`), nil
-	case Rough:
-		return []byte(`"rough"`), nil
-	case SacredMountain:
-		return []byte(`"sacred-mountain"`), nil
-	case SaltMarsh:
-		return []byte(`"salt-marsh"`), nil
-	case Sea:
-		return []byte(`"sea"`), nil
-	case Steppe:
-		return []byte(`"steppe"`), nil
-	case Swamp:
-		return []byte(`"swamp"`), nil
+// Description returns a description of the code.
+func (c Terrain) Description() string {
+	if c < Unknown || endOfCodes <= c {
+		panic(fmt.Sprintf("assert(terrain != %d)", c))
 	}
-	return nil, fmt.Errorf("invalid value")
+	return Description[c]
 }
 
-func (t *Terrain) UnmarshalJSON(b []byte) error {
-	if bytes.Equal(b, []byte(`"clear"`)) {
-		*t = Clear
-		return nil
-	} else if bytes.Equal(b, []byte(`"delta"`)) {
-		*t = Delta
-		return nil
-	} else if bytes.Equal(b, []byte(`"desert"`)) {
-		*t = Desert
-		return nil
-	} else if bytes.Equal(b, []byte(`"forest"`)) {
-		*t = Forest
-		return nil
-	} else if bytes.Equal(b, []byte(`"gravel"`)) {
-		*t = Gravel
-		return nil
-	} else if bytes.Equal(b, []byte(`"ice"`)) {
-		*t = Ice
-		return nil
-	} else if bytes.Equal(b, []byte(`"mountain"`)) {
-		*t = Mountain
-		return nil
-	} else if bytes.Equal(b, []byte(`"ocean"`)) {
-		*t = Ocean
-		return nil
-	} else if bytes.Equal(b, []byte(`"plain"`)) {
-		*t = Plain
-		return nil
-	} else if bytes.Equal(b, []byte(`"rock"`)) {
-		*t = Rock
-		return nil
-	} else if bytes.Equal(b, []byte(`"rough"`)) {
-		*t = Rough
-		return nil
-	} else if bytes.Equal(b, []byte(`"sacred-mountain"`)) {
-		*t = SacredMountain
-		return nil
-	} else if bytes.Equal(b, []byte(`"salt-marsh"`)) {
-		*t = SaltMarsh
-		return nil
-	} else if bytes.Equal(b, []byte(`"sea"`)) {
-		*t = Sea
-		return nil
-	} else if bytes.Equal(b, []byte(`"steppe"`)) {
-		*t = Steppe
-		return nil
-	} else if bytes.Equal(b, []byte(`"swamp"`)) {
-		*t = Swamp
-		return nil
+// LongDescription returns an expanded description of the terrain code.
+func (c Terrain) LongDescription() string {
+	if c < Unknown || endOfCodes <= c {
+		panic(fmt.Sprintf("assert(terrain != %d)", c))
 	}
-	*t = Clear
-	return fmt.Errorf("invalid terrain: %q", string(b))
+	return LongDescription[c]
 }
 
-func (t Terrain) String() string {
-	switch t {
-	case Clear:
-		return "clear"
-	case Delta:
-		return "delta"
-	case Desert:
-		return "desert"
-	case Forest:
-		return "forest"
-	case Gravel:
-		return "gravel"
-	case Ice:
-		return "ice"
-	case Mountain:
-		return "mountain"
-	case Ocean:
-		return "ocean"
-	case Plain:
-		return "plain"
-	case Rock:
-		return "rock"
-	case Rough:
-		return "rough"
-	case SacredMountain:
-		return "sacred-mountain"
-	case SaltMarsh:
-		return "salt-marsh"
-	case Sea:
-		return "sea"
-	case Steppe:
-		return "steppe"
-	case Swamp:
-		return "swamp"
+// MarshalJSON implements the json.Marshaler interface
+func (c Terrain) MarshalJSON() ([]byte, error) {
+	if c < Unknown || endOfCodes <= c {
+		return nil, fmt.Errorf("unknown terrain")
+	} else if c == Unknown {
+		return nil, nil
 	}
-	return "clear"
+	return []byte("\"" + Codes[c] + "\""), nil
+}
+
+// String implements the string.Stringer interface
+func (c Terrain) String() string {
+	if c < Unknown || endOfCodes <= c {
+		panic(fmt.Sprintf("assert(terrain != %d)", c))
+	}
+	return Codes[c]
+}
+
+func (c Terrain) ToFill() string {
+	return "**fill**"
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface
+func (c *Terrain) UnmarshalJSON(b []byte) error {
+	if len(b) < 2 || b[0] != '"' || b[len(b)-1] != '"' {
+		return fmt.Errorf("invalid terrain %q", string(b))
+	}
+	var ok bool
+	*c, ok = unmarshalCode(strings.ToUpper(string(b[1 : len(b)-1])))
+	if !ok {
+		return fmt.Errorf("unknown terrain %s", string(b))
+	}
+	return nil
+}
+
+func unmarshalCode(s string) (Terrain, bool) {
+	if c, ok := slices.BinarySearch(Codes, s); ok {
+		return Terrain(c), true
+	}
+	switch s {
+	case "CONIFER HILLS":
+		return CH, true
+	case "FORD":
+		return FORDS, true
+	case "GRASSY HILLS":
+		return GH, true
+	case "OCEAN":
+		return O, true
+	case "PRAIRIE":
+		return PR, true
+	case "RIVER":
+		return R, true
+	case "ROCKY HILLS":
+		return RH, true
+	}
+	return Unknown, true
 }

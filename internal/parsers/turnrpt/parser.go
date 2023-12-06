@@ -237,6 +237,19 @@ func (r *Report) parseRiverBlock(input []byte) (direction, rest []byte, err erro
 	return direction, rest, nil
 }
 
+// parseScoutAction:
+//
+//	action :== result (BackSlash result)*
+//
+//	result :== unitId
+//	  | OceanBlocked Direction OfHex (Comma finding)*
+//	  | RiverBlocked Direction OfHex (Comma finding)*
+//	  | MPExhausted Direction Terrain (Comma finding)*
+//	  | Direction Dash Terrain (Comma Terrain Direction (Comma Direction)*)* (Comma finding)*
+//
+//	finding :== NothingOfInterest
+//	  | Find ore
+//	  | Patrolled unitId+
 func (r *Report) parseScoutAction(no int, input []byte) error {
 	log.Printf("parseScoutAction %d: %q\n", no, input)
 	if len(input) == 0 {

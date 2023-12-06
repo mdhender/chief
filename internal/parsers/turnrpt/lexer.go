@@ -8,6 +8,18 @@ import (
 	"fmt"
 )
 
+func nextToken(input []byte) (token, rest []byte) {
+	_, input = lexSpaces(input)
+	if len(input) == 0 {
+		return nil, input
+	}
+	var pos int
+	for pos = 0; pos < len(input) && !isspace(input[pos]); pos++ {
+		//
+	}
+	return input[:pos], input[pos:]
+}
+
 func lexToken(input []byte) string {
 	_, input = lexSpaces(input)
 	var val string
@@ -129,6 +141,19 @@ func lexDelimiter(input []byte, ch byte) (token, rest []byte) {
 		return nil, input
 	}
 	return input[:1], input[1:]
+}
+
+func lexDeposit(input []byte) (token, rest []byte) {
+	_, input = lexSpaces(input)
+	// upper-cased for scouting
+	for _, kw := range [][]byte{{'C', 'O', 'A', 'L'}, {'I', 'R', 'O', 'N'}, {'Z', 'I', 'N', 'C'}} {
+		if bytes.HasPrefix(input, kw) {
+			if len(input) == len(kw) || isdelim(input[len(kw)]) {
+				return input[:len(kw)], input[len(kw):]
+			}
+		}
+	}
+	return nil, input
 }
 
 func lexDirection(input []byte) (token, rest []byte) {
@@ -314,11 +339,29 @@ func lexTerrain(input []byte) (token, rest []byte) {
 	return nil, input
 }
 
+func lexTribeElement(input []byte) (token, rest []byte) {
+	_, input = lexSpaces(input)
+	if len(input) < 6 {
+		return nil, input
+	} else if !(isdigit(input[0]) && isdigit(input[1]) && isdigit(input[2]) && isdigit(input[3])) {
+		return nil, input
+	} else if !islower(input[4]) {
+		return nil, input
+	} else if !isdigit(input[5]) {
+		return nil, input
+	} else if !(len(input) == 6 || isdelim(input[6])) {
+		return nil, input
+	}
+	return input[:6], input[6:]
+}
+
 func lexTribeNo(input []byte) (token, rest []byte) {
 	_, input = lexSpaces(input)
 	if len(input) < 4 {
 		return nil, input
-	} else if !isdigit(input[0]) || !isdigit(input[1]) || !isdigit(input[2]) || !isdigit(input[3]) {
+	} else if !(isdigit(input[0]) && isdigit(input[1]) && isdigit(input[2]) && isdigit(input[3])) {
+		return nil, input
+	} else if !(len(input) == 4 || isdelim(input[4])) {
 		return nil, input
 	}
 	return input[:4], input[4:]
@@ -356,6 +399,14 @@ func lexTurnNo(input []byte) (token, rest []byte) {
 	return input[:6], input[6:]
 }
 
+func lexUnit(input []byte) (token, rest []byte) {
+	token, rest = lexTribeNo(input)
+	if token == nil {
+		token, rest = lexTribeElement(input)
+	}
+	return token, rest
+}
+
 func lexWeather(input []byte) (token, rest []byte) {
 	_, input = lexSpaces(input)
 	for _, literal := range [][]byte{[]byte("FINE")} {
@@ -367,8 +418,15 @@ func lexWeather(input []byte) (token, rest []byte) {
 	return nil, input
 }
 
+func isdelim(ch byte) bool {
+	return ch == ' ' || ch == ',' || ch == '\\'
+}
 func isdigit(ch byte) bool {
 	return '0' <= ch && ch <= '9'
+}
+
+func islower(ch byte) bool {
+	return 'a' <= ch && ch <= 'z'
 }
 
 func isspace(ch byte) bool {

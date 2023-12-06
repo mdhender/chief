@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	terrain2 "github.com/mdhender/chief/internal/terrain"
 	"log"
 	"os"
 	"strings"
@@ -81,7 +80,7 @@ func LoadScoutingReport(filename string, scouts map[string]*ScoutingParty) error
 				move.Direction = S
 				arg = arg[2:]
 			} else if strings.HasPrefix(arg, "SW-") || strings.HasPrefix(arg, "SW ") {
-				move.Direction = terrain2.SW
+				move.Direction = SW
 				arg = arg[3:]
 			} else if strings.HasPrefix(arg, "NW-") || strings.HasPrefix(arg, "NW ") {
 				move.Direction = NW
