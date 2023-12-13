@@ -20,7 +20,7 @@ func cube_ring(center Cube, radius int) []Cube {
 	return results
 }
 
-// returns number of cubes in the radius
+// Area returns number of cubes in the radius
 func Area(radius int) int {
 	if radius < 0 {
 		return 0

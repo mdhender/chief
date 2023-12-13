@@ -11,12 +11,13 @@ func abs(x int) int {
 	return x
 }
 
-// mod is a helper function to get the modulus of an integer
+// modulo is a helper function to get the modulus of an integer
 // (as opposed to %, which is the remainder operator)
-func mod(a, b int) int {
-	// you can check for b == 0 separately and do what you want
-	if b < 0 {
-		return -mod(-a, -b)
+func modulo(a, b int) int {
+	if b == 0 {
+		panic("assert(b != 0)")
+	} else if b < 0 {
+		return -modulo(-a, -b)
 	}
 	m := a % b
 	if m < 0 {
@@ -27,7 +28,7 @@ func mod(a, b int) int {
 
 // hex_direction converts 0...5 to a hex offset
 func hex_direction(direction int) Hex {
-	// direction = mod(direction, 6)
+	// direction = modulo(direction, 6)
 	direction = (6 + (direction % 6)) % 6
 	return hex_directions[direction]
 }
