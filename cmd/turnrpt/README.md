@@ -16,3 +16,5 @@ The initial set-up report seems to be hand generated.
 It needs to have some things added to parse successfully.
 
 ### Regular turns
+
+You must place a form-feed after the last unit report, before Transfers and before Settlements.

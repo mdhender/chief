@@ -12,11 +12,8 @@ import (
 
 }
 
-ReportFile <- clan:ClanReport _ rptsi:(TribeReport / CourierReport / ElementReport)* rest:REST EOF {
+ReportFile <- rptsi:UnitReport* rest:REST EOF {
     var rpt Report
-
-    r := clan.(*TribeReport)
-    rpt.T = append(rpt.T, r)
 
     rpts := rptsi.([]any)
     for _, r := range rpts {
@@ -119,6 +116,59 @@ TribeReport <- "Tribe" _ id:TRIBEID CommonHeading
     return &t, nil
 }
 
+UnitReport <- ("Tribe" / "Courier" / "Element") _ id:UNITID CommonHeading
+ _ ClanHeading?
+ _ GoodsTribe
+ _ DesiredCommodities?
+ _ gm:GMNotes?
+ _ tact:TribeActivities
+ _ fact:FinalActivities
+ _ tmove:TribeMovement
+ _ smove:ScoutMovement?
+ _ status:UnitStatus
+ _ humans:Humans
+ _ animals:Animals
+ _ minerals:Minerals
+ _ warEquipment:WarEquipment
+ _ finishedGoods:FinishedGoods
+ _ rawMaterials:RawMaterials
+ _ ships:Ships
+ _ skills:Skills
+ _ morale:Morale
+ _ weight:Weight
+ _ truces:Truces?
+ _ b:BLEET FF {
+    var t TribeReport
+    t.Id = id.(string)
+    t.Bleet = b.(string)
+
+    if gm != nil {
+        t.GMNotes = gm.(string)
+    }
+    t.TribeActivities = tact.(*TribeActivities)
+    t.FinalActivities = fact.(*FinalActivities)
+    t.TribeMovement = tmove.(*TribeMovement)
+    if smove != nil {
+        t.ScoutMovement = smove.(*ScoutMovement)
+    }
+    t.UnitStatus = status.(*UnitStatus)
+    t.Humans = humans.(*Humans)
+    t.Animals = animals.(*Animals)
+    t.Minerals = minerals.(*Minerals)
+    t.WarEquipment = warEquipment.(*WarEquipment)
+    t.FinishedGoods = finishedGoods.(*FinishedGoods)
+    t.RawMaterials = rawMaterials.(*RawMaterials)
+    t.Ships = ships.(*Ships)
+    t.Skills = skills.(*Skills)
+    t.Morale = morale.(*Morale)
+    t.Weight = weight.(*Weight)
+    if truces != nil {
+        t.Truces = truces.(*Truces)
+    }
+
+    return &t, nil
+}
+
 CommonHeading <-
  _ ',' _ ',' _ "Current Hex" _ '=' _ HEXID _ ',' _ '(' _ "Previous Hex" _ '=' _ HEXID _ ')'
  _ "Current Turn" _ TURNID _ '(' _ MONTHID _ ')' _ ',' _ SEASON _ ',' _ WEATHER
@@ -133,6 +183,10 @@ ClanHeading <-
     return string(c.text), nil
 }
 
+GoodsTribe <- "Goods Tribe:" _ ("No GT" / TRIBEID) {
+    return string(c.text), nil
+}
+
 DesiredCommodities <- "Desired Commodities:" _ "(1)" _ c1:COMMODITY _ ',' _ "(2)" _ c2:COMMODITY {
     s1 := c1.(string)
     s2 := c2.(string)
@@ -143,8 +197,10 @@ GMNotes <- (!"Tribe Activities:" .)* &"Tribe Activities:" {
     return strings.TrimSpace(string(c.text)), nil
 }
 
-GoodsTribe <- "Goods Tribe:" _ ("No GT" / TRIBEID) {
-    return string(c.text), nil
+TribeActivities <- "Tribe Activities:" (!"Final Activities:" .)* {
+    var t TribeActivities
+    t.Bleet = string(c.text)
+    return &t, nil
 }
 
 FinalActivities <- "Final Activities:" (!"Tribe Movement:" .)* {
@@ -153,16 +209,100 @@ FinalActivities <- "Final Activities:" (!"Tribe Movement:" .)* {
     return &t, nil
 }
 
-TribeActivities <- "Tribe Activities:" (!"Final Activities:" .)* {
-    var t TribeActivities
+TribeMovement <- "Tribe Movement:" (!((UNITID _ "Status:") / "Scout 1:") .)* {
+    var t TribeMovement
     t.Bleet = string(c.text)
     return &t, nil
 }
 
-TribeMovement <- "Tribe Movement:" (!(UNITID _ "Status:") .)* {
-    var t TribeMovement
+ScoutMovement <- "Scout 1:" (!(UNITID _ "Status:") .)* {
+    var t ScoutMovement
     t.Bleet = string(c.text)
     return &t, nil
+}
+
+UnitStatus <- UNITID _ "Status:" (!"Humans" .)* {
+    var t UnitStatus
+    t.Bleet = string(c.text)
+    return &t, nil
+}
+
+Humans <- "Humans" (!"Animals" .)* {
+    var o Humans
+    o.Bleet = string(c.text)
+    return &o, nil
+}
+
+Animals <- "Animals" (!"Minerals" .)* {
+    var o Animals
+    o.Bleet = string(c.text)
+    return &o, nil
+}
+
+Minerals <- "Minerals" (!"War Equipment" .)* {
+    var o Minerals
+    o.Bleet = string(c.text)
+    return &o, nil
+}
+
+WarEquipment <- "War Equipment" (!"Finished Goods" .)* {
+    var o WarEquipment
+    o.Bleet = string(c.text)
+    return &o, nil
+}
+
+FinishedGoods <- "Finished Goods" (!"Raw Materials" .)* {
+    var o FinishedGoods
+    o.Bleet = string(c.text)
+    return &o, nil
+}
+
+RawMaterials <- "Raw Materials" (!"Ships" .)* {
+    var o RawMaterials
+    o.Bleet = string(c.text)
+    return &o, nil
+}
+
+Ships <- "Ships" (!"Skills:" .)* {
+    var o Ships
+    o.Bleet = string(c.text)
+    return &o, nil
+}
+
+Skills <- "Skills:" (!"Morale :" .)* {
+    var o Skills
+    o.Bleet = string(c.text)
+    return &o, nil
+}
+
+Morale <- "Morale :" (!"Weight:" .)* {
+    var o Morale
+    o.Bleet = string(c.text)
+    return &o, nil
+}
+
+Weight <- "Weight:" (!(FF / "Truces :") .)* {
+    var o Weight
+    o.Bleet = string(c.text)
+    return &o, nil
+}
+
+Truces <- "Truces :" (!FF .)* {
+    var o Truces
+    o.Bleet = string(c.text)
+    return &o, nil
+}
+
+Transfers <- "Transfers" (!FF .)* {
+    var o Transfers
+    o.Bleet = string(c.text)
+    return &o, nil
+}
+
+Settlements <- "Settlements" (!FF .)* {
+    var o Settlements
+    o.Bleet = string(c.text)
+    return &o, nil
 }
 
 // TERMINALS
