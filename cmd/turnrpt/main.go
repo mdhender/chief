@@ -78,6 +78,7 @@ func parseReport(root, clan, turn, grid string) error {
 	} else {
 		input = parser.FilterDefaultGrid(input, "LL")
 	}
+	input = parser.TransformMarkScoutLines(input)
 
 	// parse the turn report
 	raw, err := parser.Parse(filename, input)

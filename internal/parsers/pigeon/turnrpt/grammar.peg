@@ -11,11 +11,20 @@ import (
 	"strconv"
 )
 
+var debug = false
+
 func atoi(o any) (int, error) {
     if s, ok := o.(string); ok {
         return strconv.Atoi(s)
     }
     return 0, fmt.Errorf("invalid integer")
+}
+
+func toAnySlice(v any) []any {
+    if v == nil {
+        return nil
+    }
+    return v.([]any)
 }
 
 }
@@ -47,7 +56,7 @@ UnitReport <- ("Tribe" / "Courier" / "Element") _ id:UNITID
  _ tact:TribeActivities
  _ fact:FinalActivities
  _ tmove:TribeMovement
- _ smove:ScoutMovement?
+ _ scouts:ScoutActions?
  _ status:UnitStatus
  _ people:Humans
  _ possessions:Possessions?
@@ -74,8 +83,8 @@ UnitReport <- ("Tribe" / "Courier" / "Element") _ id:UNITID
         t.FinalActivities = fact.(*FinalActivities)
     }
     t.TribeMovement = tmove.(*TribeMovement)
-    if smove != nil {
-        t.ScoutMovement = smove.(*ScoutMovement)
+    if scouts != nil {
+        t.ScoutActions = scouts.(*ScoutActions)
     }
     t.UnitStatus = status.(*UnitStatus)
     t.People = people.(*People)
@@ -175,24 +184,54 @@ TribeMovement <- "Tribe Movement:" _ "Move" _ movesi:Moves NL {
 Moves <- movesi:validMove+ NL {
     var o []*Movement
     if movesi != nil {
-        moves := movesi.([]any)
-        for _, move := range moves {
-            o = append(o, move.(*Movement))
+        for _, move := range toAnySlice(movesi) {
+            if move != nil {
+                switch v := move.(type) {
+                case *Movement:
+                    o = append(o, move.(*Movement))
+                default:
+                    panic(fmt.Errorf("unknown type %T", v))
+                }
+            }
         }
     }
     return o, nil
 }
 
 validMove <- move:successfulMove {
+    if debug {
+        log.Printf("validMove: successfulMove: %v\n", move.(*Movement))
+    }
     return move, nil
-} / move:failedMove {
+} / move:blockedMove {
+    if debug {
+        log.Printf("validMove: blockedMove: %v\n", move.(*Movement))
+    }
+    return move, nil
+} / move:notEnoughMP {
+    if debug {
+        log.Printf("validMove: notEnoughMP: %v\n", move.(*Movement))
+    }
     return move, nil
 } / move:stillMove {
+    if debug {
+        log.Printf("validMove: stillMove: %v\n", move.(*Movement))
+    }
     return move, nil
 }
 
-failedMove <- "Can't Move" (!NL .)* {
-    return &Movement{Failed: true, Info: strings.TrimSpace(string(c.text))}, nil
+blockedMove <- "Can't Move" info:eatToEOL {
+    if debug {
+        log.Printf("blockedMove: %q\n", info.(string))
+    }
+    return &Movement{Failed: true, Info: info.(string)}, nil
+}
+
+notEnoughMP <- SPACE* "not enough" info:eatToEOL {
+    if debug {
+        log.Printf("notEnoughMP: %q\n", info.(string))
+    }
+    return &Movement{Failed: true, Info: info.(string)}, nil
 }
 
 successfulMove <- direction:DIRECTION '-' terrain:TERRAIN mi:optMoveInfo? BACKSLASH {
@@ -202,7 +241,9 @@ successfulMove <- direction:DIRECTION '-' terrain:TERRAIN mi:optMoveInfo? BACKSL
     if mi != nil {
         o.Info = mi.(string)
     }
-    // log.Printf("successfulMove: %+v\n", o)
+    if debug {
+        log.Printf("successfulMove: %+v\n", o)
+    }
     return &o, nil
 }
 
@@ -212,7 +253,9 @@ stillMove <- BACKSLASH {
 }
 
 optMoveInfo <- moveInfo:OPTMOVEINFO {
-    // log.Printf("optMoveInfo %q\n", moveInfo)
+    if debug {
+        log.Printf("optMoveInfo %q\n", moveInfo)
+    }
     return moveInfo, nil
 }
 
@@ -220,9 +263,48 @@ untilStatusOrScout <- (!((UNITID _ "Status:") / "Scout 1:") .)* {
     return string(c.text), nil
 }
 
-ScoutMovement <- "Scout 1:" (!(UNITID _ "Status:") .)* {
+ScoutActions <- scoutsi:ScoutMovement* {
+    var t *ScoutActions
+    if scoutsi != nil {
+        t = &ScoutActions{}
+        for _, scout := range toAnySlice(scoutsi) {
+            if scout != nil {
+                switch v := scout.(type) {
+                case *ScoutMovement:
+                    t.Movements = append(t.Movements, v)
+                default:
+                    t.Errors = append(t.Errors, fmt.Errorf("unknown type %T", v))
+                }
+            }
+        }
+        if debug {
+            log.Printf("scoutActions: movements %d\n", len(t.Movements))
+        }
+    } else {
+        if debug {
+            log.Printf("scoutActions: nil\n")
+        }
+    }
+    return t, nil
+}
+
+ScoutMovement <- "Scout" _ id:NUMBER _ ":Scout" SPACE+ bleet:eatToSentinel "$$$" NL {
     var t ScoutMovement
-    t.Bleet = string(c.text)
+    if n, err := atoi(id.(string)); err != nil {
+        t.Errors = append(t.Errors, err)
+    } else {
+        t.Id = n
+    }
+//    log.Printf("scoutMovement: movesi type is %T\n", movesi)
+//    moves := toAnySlice(movesi)
+//    for n, move := range moves {
+//        log.Printf("scoutMovement: movesi %d type is %T\n", n, move)
+//        //t.Movement = append(t.Movement, move)
+//    }
+    t.Bleet = bleet.(string)
+    if debug {
+        log.Printf("scoutMovement: id %d moves %d bleet %q\n", t.Id, len(t.Movement), t.Bleet)
+    }
     return &t, nil
 }
 
@@ -355,6 +437,14 @@ NL = '\n'
 SPACE = [ \t]
 STARTACTIVITIES = "Tribe Activities:" / "Final Activities"
 UPPER = [A-Z]
+
+eatToEOL <- (!NL .)* {
+    return string(c.text), nil
+}
+
+eatToSentinel <- (!"$$$" .)* {
+    return string(c.text), nil
+}
 
 BLEET <- (!FF .)* &FF {
     bleet := string(c.text)

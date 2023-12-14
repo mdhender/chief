@@ -30,7 +30,7 @@ type TribeReport struct {
 	TribeActivities    *TribeActivities    `json:"tribe-activities,omitempty"`
 	FinalActivities    *FinalActivities    `json:"final-activities,omitempty"`
 	TribeMovement      *TribeMovement      `json:"tribe-movement,omitempty"`
-	ScoutMovement      *ScoutMovement      `json:"scout-movement,omitempty"`
+	ScoutActions       *ScoutActions       `json:"scout-actions,omitempty"`
 	UnitStatus         *UnitStatus         `json:"unit-status,omitempty"`
 	People             *People             `json:"people,omitempty"`
 	Humans             *Humans             `json:"humans,omitempty"`
@@ -79,11 +79,12 @@ type Morale struct {
 }
 
 type Movement struct {
-	Direction string `json:"direction,omitempty"`
-	Stay      bool   `json:"stay,omitempty"`
-	Failed    bool   `json:"failed,omitempty"`
-	Terrain   string `json:"terrain,omitempty"`
-	Info      string `json:"info,omitempty"`
+	Direction string  `json:"direction,omitempty"`
+	Terrain   string  `json:"terrain,omitempty"`
+	Stay      bool    `json:"stay,omitempty"`
+	Failed    bool    `json:"failed,omitempty"`
+	Info      string  `json:"info,omitempty"`
+	Errors    []error `json:"errors,omitempty"`
 }
 
 type People struct {
@@ -105,8 +106,16 @@ type RawMaterials struct {
 	Bleet string `json:"bleet,omitempty"`
 }
 
+type ScoutActions struct {
+	Movements []*ScoutMovement `json:"movements,omitempty"`
+	Errors    []error          `json:"errors,omitempty"`
+}
+
 type ScoutMovement struct {
-	Bleet string `json:"bleet,omitempty"`
+	Id       int         `json:"id,omitempty"`
+	Movement []*Movement `json:"moves,omitempty"`
+	Errors   []error     `json:"errors,omitempty"`
+	Bleet    string      `json:"bleet,omitempty"`
 }
 
 type Settlements struct {
