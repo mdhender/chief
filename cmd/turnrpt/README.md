@@ -17,4 +17,8 @@ It needs to have some things added to parse successfully.
 
 ### Regular turns
 
+Verify that all Tribe Movement results are on a single line.
+
+Verify that all Scout results are on a single line.
+
 You must place a form-feed after the last unit report, before Transfers and before Settlements.

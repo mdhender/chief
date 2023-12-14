@@ -7,8 +7,15 @@ import (
     //"bytes"
     "fmt"
 	//"strings"
-	//"strconv"
+	"strconv"
 )
+
+func atoi(o any) (int, error) {
+    if s, ok := o.(string); ok {
+        return strconv.Atoi(s)
+    }
+    return 0, fmt.Errorf("invalid integer")
+}
 
 }
 
@@ -30,109 +37,19 @@ ReportFile <- rptsi:UnitReport* rest:REST EOF {
     return &rpt, nil
 }
 
-ClanReport <- "Tribe" _ id:TRIBEID CommonHeading
- _ ClanHeading
- _ GoodsTribe
- _ DesiredCommodities
- _ gm:GMNotes?
- _ tact:TribeActivities
- _ fact:FinalActivities
- _ tmove:TribeMovement
- _ b:BLEET FF {
-    var t TribeReport
-    t.Id = id.(string)
-    t.Bleet = b.(string)
-
-    if gm != nil {
-        t.GMNotes = gm.(string)
-    }
-    t.TribeActivities = tact.(*TribeActivities)
-    t.FinalActivities = fact.(*FinalActivities)
-    t.TribeMovement = tmove.(*TribeMovement)
-
-    return &t, nil
-}
-
-CourierReport <- "Courier" _ id:COURIERID CommonHeading
- _ GoodsTribe
- _ gm:GMNotes?
- _ tact:TribeActivities
- _ fact:FinalActivities
- _ tmove:TribeMovement
- _ b:BLEET FF {
-    var t TribeReport
-    t.Id = id.(string)
-    t.Bleet = b.(string)
-
-    if gm != nil {
-        t.GMNotes = gm.(string)
-    }
-    t.TribeActivities = tact.(*TribeActivities)
-    t.FinalActivities = fact.(*FinalActivities)
-    t.TribeMovement = tmove.(*TribeMovement)
-
-    return &t, nil
-}
-
-ElementReport <- "Element" _ id:ELEMENTID CommonHeading
- _ GoodsTribe
- _ gm:GMNotes?
- _ tact:TribeActivities
- _ fact:FinalActivities
- _ tmove:TribeMovement
- _ b:BLEET FF {
-    var t TribeReport
-    t.Id = id.(string)
-    t.Bleet = b.(string)
-
-    if gm != nil {
-        t.GMNotes = gm.(string)
-    }
-    t.TribeActivities = tact.(*TribeActivities)
-    t.FinalActivities = fact.(*FinalActivities)
-    t.TribeMovement = tmove.(*TribeMovement)
-
-    return &t, nil
-}
-
-TribeReport <- "Tribe" _ id:TRIBEID CommonHeading
- _ GoodsTribe
- _ gm:GMNotes?
- _ tact:TribeActivities
- _ fact:FinalActivities
- _ tmove:TribeMovement
- _ b:BLEET FF {
-    var t TribeReport
-    t.Id = id.(string)
-    t.Bleet = b.(string)
-
-    if gm != nil {
-        t.GMNotes = gm.(string)
-    }
-    t.TribeActivities = tact.(*TribeActivities)
-    t.FinalActivities = fact.(*FinalActivities)
-    t.TribeMovement = tmove.(*TribeMovement)
-
-    return &t, nil
-}
-
-UnitReport <- ("Tribe" / "Courier" / "Element") _ id:UNITID CommonHeading
+UnitReport <- ("Tribe" / "Courier" / "Element") _ id:UNITID
+ _ commonHeadingi:CommonHeading
  _ ClanHeading?
- _ GoodsTribe
+ _ goodsTribe:GoodsTribe
  _ DesiredCommodities?
- _ gm:GMNotes?
+ _ gmNotes:GMNotes?
  _ tact:TribeActivities
  _ fact:FinalActivities
  _ tmove:TribeMovement
  _ smove:ScoutMovement?
  _ status:UnitStatus
- _ humans:Humans
- _ animals:Animals
- _ minerals:Minerals
- _ warEquipment:WarEquipment
- _ finishedGoods:FinishedGoods
- _ rawMaterials:RawMaterials
- _ ships:Ships
+ _ people:Humans
+ _ possessions:Possessions?
  _ skills:Skills
  _ morale:Morale
  _ weight:Weight
@@ -142,8 +59,14 @@ UnitReport <- ("Tribe" / "Courier" / "Element") _ id:UNITID CommonHeading
     t.Id = id.(string)
     t.Bleet = b.(string)
 
-    if gm != nil {
-        t.GMNotes = gm.(string)
+    commonHeading := commonHeadingi.(*CommonHeading)
+    t.Turn = commonHeading.Turn
+    t.CurrentHex = commonHeading.CurrentHex
+    t.StartingHex = commonHeading.StartingHex
+
+    t.GoodsTribe = goodsTribe.(string)
+    if gmNotes != nil {
+        t.GMNotes = gmNotes.(string)
     }
     t.TribeActivities = tact.(*TribeActivities)
     t.FinalActivities = fact.(*FinalActivities)
@@ -152,13 +75,10 @@ UnitReport <- ("Tribe" / "Courier" / "Element") _ id:UNITID CommonHeading
         t.ScoutMovement = smove.(*ScoutMovement)
     }
     t.UnitStatus = status.(*UnitStatus)
-    t.Humans = humans.(*Humans)
-    t.Animals = animals.(*Animals)
-    t.Minerals = minerals.(*Minerals)
-    t.WarEquipment = warEquipment.(*WarEquipment)
-    t.FinishedGoods = finishedGoods.(*FinishedGoods)
-    t.RawMaterials = rawMaterials.(*RawMaterials)
-    t.Ships = ships.(*Ships)
+    t.People = people.(*People)
+    if possessions != nil {
+        t.Possessions = possessions.(*Possessions)
+    }
     t.Skills = skills.(*Skills)
     t.Morale = morale.(*Morale)
     t.Weight = weight.(*Weight)
@@ -170,10 +90,14 @@ UnitReport <- ("Tribe" / "Courier" / "Element") _ id:UNITID CommonHeading
 }
 
 CommonHeading <-
- _ ',' _ ',' _ "Current Hex" _ '=' _ HEXID _ ',' _ '(' _ "Previous Hex" _ '=' _ HEXID _ ')'
- _ "Current Turn" _ TURNID _ '(' _ MONTHID _ ')' _ ',' _ SEASON _ ',' _ WEATHER
+ _ ',' _ ',' _ "Current Hex" _ '=' _ currentHex:HEXID _ ',' _ '(' _ "Previous Hex" _ '=' _ startingHex:HEXID _ ')'
+ _ "Current Turn" _ turn:TURNID _ '(' _ MONTHID _ ')' _ ',' _ SEASON _ ',' _ WEATHER
 {
-    return string(c.text), nil
+    var o CommonHeading
+    o.CurrentHex = currentHex.(string)
+    o.StartingHex = startingHex.(string)
+    o.Turn = turn.(string)
+    return &o, nil
 }
 
 ClanHeading <-
@@ -183,8 +107,21 @@ ClanHeading <-
     return string(c.text), nil
 }
 
-GoodsTribe <- "Goods Tribe:" _ ("No GT" / TRIBEID) {
-    return string(c.text), nil
+GoodsTribe <- "Goods Tribe:" _ id:("No GT" / TRIBEID) {
+    switch v := id.(type) {
+    case []uint8:
+        if bytes.Equal(v, []byte("No GT")) {
+            return "", nil
+        }
+        return string(v), nil
+    case string:
+        if v == "No GT" {
+            return "", nil
+        }
+        return v, nil
+    default:
+        return id, fmt.Errorf("unknown type %T", v)
+    }
 }
 
 DesiredCommodities <- "Desired Commodities:" _ "(1)" _ c1:COMMODITY _ ',' _ "(2)" _ c2:COMMODITY {
@@ -203,16 +140,29 @@ TribeActivities <- "Tribe Activities:" (!"Final Activities:" .)* {
     return &t, nil
 }
 
-FinalActivities <- "Final Activities:" (!"Tribe Movement:" .)* {
+FinalActivities <- "Final Activities:" _ bleet:untilTribeMovement {
     var t FinalActivities
-    t.Bleet = string(c.text)
+    t.Bleet = bleet.(string)
     return &t, nil
 }
 
-TribeMovement <- "Tribe Movement:" (!((UNITID _ "Status:") / "Scout 1:") .)* {
+untilTribeMovement <- (!("Tribe Follows" / "Tribe Movement:") .)* {
+    return string(c.text), nil
+}
+
+TribeMovement <- "Tribe Movement:" _ bleet:untilStatusOrScout {
     var t TribeMovement
-    t.Bleet = string(c.text)
+    t.Bleet = bleet.(string)
     return &t, nil
+} / "Tribe Follows" _ id:UNITID bleet:untilStatusOrScout {
+    var t TribeMovement
+    t.Follows = id.(string)
+    t.Bleet = bleet.(string)
+    return &t, nil
+}
+
+untilStatusOrScout <- (!((UNITID _ "Status:") / "Scout 1:") .)* {
+    return string(c.text), nil
 }
 
 ScoutMovement <- "Scout 1:" (!(UNITID _ "Status:") .)* {
@@ -221,15 +171,81 @@ ScoutMovement <- "Scout 1:" (!(UNITID _ "Status:") .)* {
     return &t, nil
 }
 
-UnitStatus <- UNITID _ "Status:" (!"Humans" .)* {
-    var t UnitStatus
-    t.Bleet = string(c.text)
-    return &t, nil
+UnitStatus <- id:UNITID _ "Status:" _ terrain:Terrain _ bleet:untilHumans {
+    var o UnitStatus
+    o.Id = id.(string)
+    o.Terrain = terrain.(string)
+    o.Bleet = bleet.(string)
+    return &o, nil
 }
 
-Humans <- "Humans" (!"Animals" .)* {
-    var o Humans
-    o.Bleet = string(c.text)
+untilHumans <- (!"Humans" .)* {
+    return string(c.text), nil
+}
+
+Terrain <-    (
+    "CONIFER HILLS" /
+    "GRASSY HILLS"  /
+    "OCEAN"         /
+    "PRAIRIE"       /
+    "ROCKY HILLS"   /
+    "RIVER"         /
+    "SWAMP"         /
+    "CH" / "GH" / "O" / "PR" / "RH" / "R" / "SW"
+) {
+    s := string(c.text)
+    switch s {
+    case "CH", "CONIFER HILLS":
+        return "CH", nil
+    case "GH", "GRASSY HILLS":
+        return "GH", nil
+    case "O", "OCEAN", "Ocean":
+        return "O", nil
+    case "PR", "PRAIRIE":
+        return "PR", nil
+    case "R", "RIVER":
+        return "R", nil
+    case "RH", "ROCKY HILLS":
+        return "RH", nil
+    case "SW", "SWAMP":
+        return "SW", nil
+    default:
+        return string(c.text), fmt.Errorf("unknown terrain")
+    }
+}
+
+Humans <- "Humans" _
+  "People" _ totalPeople:NUMBER _
+  "Warriors" _ warriors:NUMBER _
+  "Actives" _ active:NUMBER _
+  "Inactives" _ inactive:NUMBER
+  SPACE* "\n\n"
+{
+    var o People
+    total, err := atoi(totalPeople.(string))
+    if o.Warriors, err = atoi(warriors.(string)); err != nil {
+        return &o, err
+    }
+    if o.Active, err = atoi(active.(string)); err != nil {
+        return &o, err
+    }
+    if o.Inactive, err = atoi(inactive.(string)); err != nil {
+        return &o, err
+    }
+    if o.Warriors + o.Active + o.Inactive != total {
+        return &o, fmt.Errorf("totals does not match")
+    }
+    return &o, nil
+}
+
+Possessions <- animals:Animals minerals:Minerals warEquipment:WarEquipment finishedGoods:FinishedGoods rawMaterials:RawMaterials ships:Ships {
+    var o Possessions
+    o.Animals = animals.(*Animals)
+    o.Minerals = minerals.(*Minerals)
+    o.WarEquipment = warEquipment.(*WarEquipment)
+    o.FinishedGoods = finishedGoods.(*FinishedGoods)
+    o.RawMaterials = rawMaterials.(*RawMaterials)
+    o.Ships = ships.(*Ships)
     return &o, nil
 }
 
@@ -310,6 +326,7 @@ Settlements <- "Settlements" (!FF .)* {
 DIGIT = [0-9]
 EOF = !.
 FF = '\f'
+SPACE = [ \t]
 STARTACTIVITIES = "Tribe Activities:" / "Final Activities"
 UPPER = [A-Z]
 
@@ -345,7 +362,7 @@ MONTHID <- '#' DIGIT DIGIT? {
 }
 
 NUMBER <- DIGIT+ ('.' DIGIT+)? {
-    return string(c.text[1:]), nil
+    return string(c.text), nil
 }
 
 REST <- .* {
