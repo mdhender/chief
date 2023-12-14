@@ -6,6 +6,7 @@ package parser
 import (
     //"bytes"
     "fmt"
+    //"log"
 	//"strings"
 	"strconv"
 )
@@ -69,7 +70,9 @@ UnitReport <- ("Tribe" / "Courier" / "Element") _ id:UNITID
         t.GMNotes = gmNotes.(string)
     }
     t.TribeActivities = tact.(*TribeActivities)
-    t.FinalActivities = fact.(*FinalActivities)
+    if fact != nil {
+        t.FinalActivities = fact.(*FinalActivities)
+    }
     t.TribeMovement = tmove.(*TribeMovement)
     if smove != nil {
         t.ScoutMovement = smove.(*ScoutMovement)
@@ -141,24 +144,76 @@ TribeActivities <- "Tribe Activities:" (!"Final Activities:" .)* {
 }
 
 FinalActivities <- "Final Activities:" _ bleet:untilTribeMovement {
-    var t FinalActivities
-    t.Bleet = bleet.(string)
-    return &t, nil
+    var t *FinalActivities
+    if strings.TrimSpace(bleet.(string)) != "" {
+        t = &FinalActivities{
+            Bleet: bleet.(string),
+        }
+    }
+    return t, nil
 }
 
 untilTribeMovement <- (!("Tribe Follows" / "Tribe Movement:") .)* {
     return string(c.text), nil
 }
 
-TribeMovement <- "Tribe Movement:" _ bleet:untilStatusOrScout {
+TribeMovement <- "Tribe Movement:" _ "Move" _ movesi:Moves NL {
     var t TribeMovement
-    t.Bleet = bleet.(string)
+    if movesi != nil {
+        moves := movesi.([]*Movement)
+        for _, move := range moves {
+            if move != nil {
+                t.Movement = append(t.Movement, move)
+            }
+        }
+    }
     return &t, nil
-} / "Tribe Follows" _ id:UNITID bleet:untilStatusOrScout {
-    var t TribeMovement
-    t.Follows = id.(string)
-    t.Bleet = bleet.(string)
-    return &t, nil
+} / "Tribe Follows" _ id:UNITID NL {
+    return &TribeMovement{Follows: id.(string)}, nil
+}
+
+Moves <- movesi:validMove+ NL {
+    var o []*Movement
+    if movesi != nil {
+        moves := movesi.([]any)
+        for _, move := range moves {
+            o = append(o, move.(*Movement))
+        }
+    }
+    return o, nil
+}
+
+validMove <- move:successfulMove {
+    return move, nil
+} / move:failedMove {
+    return move, nil
+} / move:stillMove {
+    return move, nil
+}
+
+failedMove <- "Can't Move" (!NL .)* {
+    return &Movement{Failed: true, Info: strings.TrimSpace(string(c.text))}, nil
+}
+
+successfulMove <- direction:DIRECTION '-' terrain:TERRAIN mi:optMoveInfo? BACKSLASH {
+    var o Movement
+    o.Direction = direction.(string)
+    o.Terrain = terrain.(string)
+    if mi != nil {
+        o.Info = mi.(string)
+    }
+    // log.Printf("successfulMove: %+v\n", o)
+    return &o, nil
+}
+
+stillMove <- BACKSLASH {
+    // an empty move means stay still
+    return &Movement{Stay: true}, nil
+}
+
+optMoveInfo <- moveInfo:OPTMOVEINFO {
+    // log.Printf("optMoveInfo %q\n", moveInfo)
+    return moveInfo, nil
 }
 
 untilStatusOrScout <- (!((UNITID _ "Status:") / "Scout 1:") .)* {
@@ -171,7 +226,7 @@ ScoutMovement <- "Scout 1:" (!(UNITID _ "Status:") .)* {
     return &t, nil
 }
 
-UnitStatus <- id:UNITID _ "Status:" _ terrain:Terrain _ bleet:untilHumans {
+UnitStatus <- id:UNITID _ "Status:" _ terrain:TERRAIN _ bleet:untilHumans {
     var o UnitStatus
     o.Id = id.(string)
     o.Terrain = terrain.(string)
@@ -181,37 +236,6 @@ UnitStatus <- id:UNITID _ "Status:" _ terrain:Terrain _ bleet:untilHumans {
 
 untilHumans <- (!"Humans" .)* {
     return string(c.text), nil
-}
-
-Terrain <-    (
-    "CONIFER HILLS" /
-    "GRASSY HILLS"  /
-    "OCEAN"         /
-    "PRAIRIE"       /
-    "ROCKY HILLS"   /
-    "RIVER"         /
-    "SWAMP"         /
-    "CH" / "GH" / "O" / "PR" / "RH" / "R" / "SW"
-) {
-    s := string(c.text)
-    switch s {
-    case "CH", "CONIFER HILLS":
-        return "CH", nil
-    case "GH", "GRASSY HILLS":
-        return "GH", nil
-    case "O", "OCEAN", "Ocean":
-        return "O", nil
-    case "PR", "PRAIRIE":
-        return "PR", nil
-    case "R", "RIVER":
-        return "R", nil
-    case "RH", "ROCKY HILLS":
-        return "RH", nil
-    case "SW", "SWAMP":
-        return "SW", nil
-    default:
-        return string(c.text), fmt.Errorf("unknown terrain")
-    }
 }
 
 Humans <- "Humans" _
@@ -323,9 +347,11 @@ Settlements <- "Settlements" (!FF .)* {
 
 // TERMINALS
 
+BACKSLASH = '\\'
 DIGIT = [0-9]
 EOF = !.
 FF = '\f'
+NL = '\n'
 SPACE = [ \t]
 STARTACTIVITIES = "Tribe Activities:" / "Final Activities"
 UPPER = [A-Z]
@@ -349,6 +375,10 @@ DDMMYYYY <- DIGIT DIGIT? '/' DIGIT DIGIT? '/' DIGIT DIGIT DIGIT DIGIT {
     return string(c.text), nil
 }
 
+DIRECTION <- ("NE" / "NW" / "N" / "SE" / "SW" / "S") {
+    return string(c.text), nil
+}
+
 ELEMENTID <- DIGIT DIGIT DIGIT DIGIT 'e' DIGIT {
     return string(c.text), nil
 }
@@ -365,6 +395,10 @@ NUMBER <- DIGIT+ ('.' DIGIT+)? {
     return string(c.text), nil
 }
 
+OPTMOVEINFO <- ',' (!(BACKSLASH / NL) .)* {
+    return strings.TrimSpace(string(c.text)), nil
+}
+
 REST <- .* {
     rest := string(c.text)
     return rest, nil
@@ -372,6 +406,37 @@ REST <- .* {
 
 SEASON <- "Spring" / "Summer" / "Winter" {
     return string(c.text), nil
+}
+
+TERRAIN <-    (
+    "CONIFER HILLS" /
+    "GRASSY HILLS"  /
+    "OCEAN"         /
+    "PRAIRIE"       /
+    "ROCKY HILLS"   /
+    "RIVER"         /
+    "SWAMP"         /
+    "CH" / "GH" / "O" / "PR" / "RH" / "R" / "SW"
+) {
+    s := string(c.text)
+    switch s {
+    case "CH", "CONIFER HILLS":
+        return "CH", nil
+    case "GH", "GRASSY HILLS":
+        return "GH", nil
+    case "O", "OCEAN", "Ocean":
+        return "O", nil
+    case "PR", "PRAIRIE":
+        return "PR", nil
+    case "R", "RIVER":
+        return "R", nil
+    case "RH", "ROCKY HILLS":
+        return "RH", nil
+    case "SW", "SWAMP":
+        return "SW", nil
+    default:
+        return string(c.text), fmt.Errorf("unknown terrain")
+    }
 }
 
 TRIBEID <- DIGIT DIGIT DIGIT DIGIT {

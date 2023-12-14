@@ -78,6 +78,14 @@ type Morale struct {
 	Bleet string `json:"bleet,omitempty"`
 }
 
+type Movement struct {
+	Direction string `json:"direction,omitempty"`
+	Stay      bool   `json:"stay,omitempty"`
+	Failed    bool   `json:"failed,omitempty"`
+	Terrain   string `json:"terrain,omitempty"`
+	Info      string `json:"info,omitempty"`
+}
+
 type People struct {
 	Warriors int `json:"warriors,omitempty"`
 	Active   int `json:"active,omitempty"`
@@ -121,15 +129,10 @@ type TribeActivities struct {
 	Bleet string `json:"bleet,omitempty"`
 }
 
-type TribeMove struct {
-	Direction string
-	Terrain   string
-}
-
 type TribeMovement struct {
-	Follows string       `json:"follows,omitempty"`
-	Moves   []*TribeMove `json:"moves,omitempty"`
-	Bleet   string       `json:"bleet,omitempty"`
+	Follows  string      `json:"follows,omitempty"`
+	Movement []*Movement `json:"moves,omitempty"`
+	Bleet    string      `json:"bleet,omitempty"`
 }
 
 type Truces struct {
