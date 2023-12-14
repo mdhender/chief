@@ -1,0 +1,236 @@
+// pigeon grammar for turn report
+
+{
+package parser
+
+import (
+    //"bytes"
+    "fmt"
+	//"strings"
+	//"strconv"
+)
+
+}
+
+ReportFile <- clan:ClanReport _ rptsi:(TribeReport / CourierReport / ElementReport)* rest:REST EOF {
+    var rpt Report
+
+    r := clan.(*TribeReport)
+    rpt.T = append(rpt.T, r)
+
+    rpts := rptsi.([]any)
+    for _, r := range rpts {
+        switch v := r.(type) {
+        case *TribeReport:
+            rpt.T = append(rpt.T, v)
+        default:
+            rpt.T = append(rpt.T, &TribeReport{Errors: []error{fmt.Errorf("unknown type %T", v)}})
+        }
+    }
+
+    rpt.Rest = rest.(string)
+
+    return &rpt, nil
+}
+
+ClanReport <- "Tribe" _ id:TRIBEID CommonHeading
+ _ ClanHeading
+ _ GoodsTribe
+ _ DesiredCommodities
+ _ gm:GMNotes?
+ _ tact:TribeActivities
+ _ fact:FinalActivities
+ _ tmove:TribeMovement
+ _ b:BLEET FF {
+    var t TribeReport
+    t.Id = id.(string)
+    t.Bleet = b.(string)
+
+    if gm != nil {
+        t.GMNotes = gm.(string)
+    }
+    t.TribeActivities = tact.(*TribeActivities)
+    t.FinalActivities = fact.(*FinalActivities)
+    t.TribeMovement = tmove.(*TribeMovement)
+
+    return &t, nil
+}
+
+CourierReport <- "Courier" _ id:COURIERID CommonHeading
+ _ GoodsTribe
+ _ gm:GMNotes?
+ _ tact:TribeActivities
+ _ fact:FinalActivities
+ _ tmove:TribeMovement
+ _ b:BLEET FF {
+    var t TribeReport
+    t.Id = id.(string)
+    t.Bleet = b.(string)
+
+    if gm != nil {
+        t.GMNotes = gm.(string)
+    }
+    t.TribeActivities = tact.(*TribeActivities)
+    t.FinalActivities = fact.(*FinalActivities)
+    t.TribeMovement = tmove.(*TribeMovement)
+
+    return &t, nil
+}
+
+ElementReport <- "Element" _ id:ELEMENTID CommonHeading
+ _ GoodsTribe
+ _ gm:GMNotes?
+ _ tact:TribeActivities
+ _ fact:FinalActivities
+ _ tmove:TribeMovement
+ _ b:BLEET FF {
+    var t TribeReport
+    t.Id = id.(string)
+    t.Bleet = b.(string)
+
+    if gm != nil {
+        t.GMNotes = gm.(string)
+    }
+    t.TribeActivities = tact.(*TribeActivities)
+    t.FinalActivities = fact.(*FinalActivities)
+    t.TribeMovement = tmove.(*TribeMovement)
+
+    return &t, nil
+}
+
+TribeReport <- "Tribe" _ id:TRIBEID CommonHeading
+ _ GoodsTribe
+ _ gm:GMNotes?
+ _ tact:TribeActivities
+ _ fact:FinalActivities
+ _ tmove:TribeMovement
+ _ b:BLEET FF {
+    var t TribeReport
+    t.Id = id.(string)
+    t.Bleet = b.(string)
+
+    if gm != nil {
+        t.GMNotes = gm.(string)
+    }
+    t.TribeActivities = tact.(*TribeActivities)
+    t.FinalActivities = fact.(*FinalActivities)
+    t.TribeMovement = tmove.(*TribeMovement)
+
+    return &t, nil
+}
+
+CommonHeading <-
+ _ ',' _ ',' _ "Current Hex" _ '=' _ HEXID _ ',' _ '(' _ "Previous Hex" _ '=' _ HEXID _ ')'
+ _ "Current Turn" _ TURNID _ '(' _ MONTHID _ ')' _ ',' _ SEASON _ ',' _ WEATHER
+{
+    return string(c.text), nil
+}
+
+ClanHeading <-
+    _ "Next Turn" _ TURNID _ '(' _ MONTHID _ ')' _ ',' _ DDMMYYYY
+    _ "Received:" _ '$' _ NUMBER _ ',' _ "Cost:" _ '$' _ NUMBER _ "Credit:" _ '$' _ NUMBER
+{
+    return string(c.text), nil
+}
+
+DesiredCommodities <- "Desired Commodities:" _ "(1)" _ c1:COMMODITY _ ',' _ "(2)" _ c2:COMMODITY {
+    s1 := c1.(string)
+    s2 := c2.(string)
+    return []string{s1, s2}, nil
+}
+
+GMNotes <- (!"Tribe Activities:" .)* &"Tribe Activities:" {
+    return strings.TrimSpace(string(c.text)), nil
+}
+
+GoodsTribe <- "Goods Tribe:" _ ("No GT" / TRIBEID) {
+    return string(c.text), nil
+}
+
+FinalActivities <- "Final Activities:" (!"Tribe Movement:" .)* {
+    var t FinalActivities
+    t.Bleet = string(c.text)
+    return &t, nil
+}
+
+TribeActivities <- "Tribe Activities:" (!"Final Activities:" .)* {
+    var t TribeActivities
+    t.Bleet = string(c.text)
+    return &t, nil
+}
+
+TribeMovement <- "Tribe Movement:" (!(UNITID _ "Status:") .)* {
+    var t TribeMovement
+    t.Bleet = string(c.text)
+    return &t, nil
+}
+
+// TERMINALS
+
+DIGIT = [0-9]
+EOF = !.
+FF = '\f'
+STARTACTIVITIES = "Tribe Activities:" / "Final Activities"
+UPPER = [A-Z]
+
+BLEET <- (!FF .)* &FF {
+    bleet := string(c.text)
+    return bleet, nil
+}
+
+COMMODITY <- "coffee"i {
+    return string(c.text), nil
+} / "frankincense"i {
+    return string(c.text), nil
+}
+
+COURIERID <- DIGIT DIGIT DIGIT DIGIT 'c' DIGIT {
+    return string(c.text), nil
+}
+
+DDMMYYYY <- DIGIT DIGIT? '/' DIGIT DIGIT? '/' DIGIT DIGIT DIGIT DIGIT {
+    return string(c.text), nil
+}
+
+ELEMENTID <- DIGIT DIGIT DIGIT DIGIT 'e' DIGIT {
+    return string(c.text), nil
+}
+
+HEXID <- UPPER UPPER ' ' DIGIT DIGIT DIGIT DIGIT {
+    return string(c.text), nil
+}
+
+MONTHID <- '#' DIGIT DIGIT? {
+    return string(c.text[1:]), nil
+}
+
+NUMBER <- DIGIT+ ('.' DIGIT+)? {
+    return string(c.text[1:]), nil
+}
+
+REST <- .* {
+    rest := string(c.text)
+    return rest, nil
+}
+
+SEASON <- "Spring" / "Summer" / "Winter" {
+    return string(c.text), nil
+}
+
+TRIBEID <- DIGIT DIGIT DIGIT DIGIT {
+    return string(c.text), nil
+}
+
+TURNID <- DIGIT DIGIT DIGIT '-' DIGIT DIGIT {
+    return string(c.text), nil
+}
+
+UNITID <- DIGIT DIGIT DIGIT DIGIT ([ce] DIGIT)? {
+    return string(c.text), nil
+}
+
+WEATHER <- "FINE" {
+    return string(c.text), nil
+}
+
+_ = [ \t\r\n]*
