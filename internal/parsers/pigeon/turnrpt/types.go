@@ -7,11 +7,11 @@
 package parser
 
 type Report struct {
-	FileName string
-	Clan     string
-	Turn     string
+	FileName string `json:"file-name,omitempty"`
+	Clan     string `json:"clan,omitempty"`
+	Turn     string `json:"turn,omitempty"`
 
-	T []*TribeReport
+	T map[string]*TribeReport `json:"units,omitempty"`
 
 	// Rest is all input after we hit our first error?
 	Rest string `json:"rest,omitempty"`

@@ -30,15 +30,15 @@ func toAnySlice(v any) []any {
 }
 
 ReportFile <- rptsi:UnitReport* rest:REST EOF {
-    var rpt Report
+    rpt := Report{T: make(map[string]*TribeReport)}
 
     rpts := rptsi.([]any)
     for _, r := range rpts {
         switch v := r.(type) {
         case *TribeReport:
-            rpt.T = append(rpt.T, v)
+            rpt.T[v.Id] = v
         default:
-            rpt.T = append(rpt.T, &TribeReport{Errors: []error{fmt.Errorf("unknown type %T", v)}})
+            panic(fmt.Errorf("unknown type %T", v))
         }
     }
 
